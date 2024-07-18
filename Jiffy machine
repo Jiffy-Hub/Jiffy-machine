@@ -1,0 +1,92 @@
+#include <Servo.h>
+#include <SoftwareSerial.h>
+
+// Pin Definitions
+const int irSensorInPin = 2;
+const int irSensorOutPin = 3;
+const int ledPin = 13;
+const int servoPin = 9;
+
+// Objects
+Servo doorServo;
+SoftwareSerial lcdSerial(10, 11); // RX, TX for HMI Serial LCD
+SoftwareSerial rfidSerial(8, 7); // RX, TX for SMT0258 UHF Reader/Writer
+
+// Variables
+bool customerExited = false;
+float totalPrice = 0.0;
+const int openDoorAngle = 90;
+const int closeDoorAngle = 0;
+
+void setup() {
+  // Initialize pins
+  pinMode(irSensorInPin, INPUT);
+  pinMode(irSensorOutPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+
+  // Initialize serial communications
+  Serial.begin(9600);
+  lcdSerial.begin(9600);
+  rfidSerial.begin(9600);
+
+  // Attach servo
+  doorServo.attach(servoPin);
+  doorServo.write(closeDoorAngle);
+
+  // Initial LCD message
+  lcdSerial.println("Welcome to Jiffy Machine");
+}
+
+void loop() {
+  // Check if customer has entered or exited
+  if (digitalRead(irSensorInPin) == HIGH) {
+    // Customer entered, read RFID tags
+    readRFIDTags();
+  } else if (digitalRead(irSensorOutPin) == HIGH) {
+    // Customer exited
+    customerExited = true;
+    totalPrice = 0.0;
+    lcdSerial.println("Bill reset to 0");
+  }
+
+  // Display total price
+  lcdSerial.print("Total Price: ");
+  lcdSerial.println(totalPrice);
+
+  // Handle payment (this is a placeholder, integrate your payment system here)
+  handlePayment();
+
+  delay(500); // Short delay to avoid rapid looping
+}
+
+void readRFIDTags() {
+  // Read RFID tags and calculate total price
+  while (rfidSerial.available() > 0) {
+    String rfidData = rfidSerial.readStringUntil('\n');
+    // Extract price from RFID data (implement your own extraction logic here)
+    float price = extractPriceFromRFID(rfidData);
+    totalPrice += price;
+  }
+}
+
+float extractPriceFromRFID(String rfidData) {
+  // Placeholder function to extract price from RFID data
+  // Implement your own logic here
+  return rfidData.toFloat(); // Assuming RFID data is just the price for simplicity
+}
+
+void handlePayment() {
+  // Placeholder for payment handling
+  // Integrate with your payment system
+  if (customerExited) {
+    // Assuming payment is successful for simplicity
+    lcdSerial.println("Payment successful!");
+    digitalWrite(ledPin, HIGH);
+    doorServo.write(openDoorAngle);
+    delay(5000); // Keep door open for 5 seconds
+    doorServo.write(closeDoorAngle);
+    digitalWrite(ledPin, LOW);
+    lcdSerial.println("Thank you! Come again!");
+    customerExited = false;
+  }
+}
