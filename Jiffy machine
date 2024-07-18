@@ -43,7 +43,7 @@ void setup() {
 void loop() {
   // Check if customer has entered or exited
   if (digitalRead(irSensorInPin) == HIGH) {
-    // Customer entered, read RFID tags
+    // Customer entered, read RFID tags 
     readRFIDTags();
   } else if (digitalRead(irSensorOutPin) == HIGH) {
     // Customer exited
