@@ -1,40 +1,43 @@
 #include <Servo.h>
 #include <SoftwareSerial.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <TFT_eSPI.h>  
 
-// Pin Definitions
 const int irSensorInPin = 2;
 const int irSensorOutPin = 3;
 const int ledPin = 13;
 const int servoPin = 9;
 
-// Objects
+TFT_eSPI tft = TFT_eSPI();  
 Servo doorServo;
-SoftwareSerial lcdSerial(10, 11); // RX, TX for HMI Serial LCD
-SoftwareSerial rfidSerial(8, 7); // RX, TX for SMT0258 UHF Reader/Writer
+SoftwareSerial rfidSerial(8, 7); 
 
-// Variables
 bool customerExited = false;
 float totalPrice = 0.0;
 const int openDoorAngle = 90;
 const int closeDoorAngle = 0;
 
 void setup() {
-  // Initialize pins
+
   pinMode(irSensorInPin, INPUT);
   pinMode(irSensorOutPin, INPUT);
   pinMode(ledPin, OUTPUT);
 
-  // Initialize serial communications
   Serial.begin(9600);
-  lcdSerial.begin(9600);
   rfidSerial.begin(9600);
 
-  // Attach servo
+  tft.begin();
+  tft.setRotation(1); 
+  tft.fillScreen(TFT_BLACK);  
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);  
+  tft.setTextSize(2);  
+
   doorServo.attach(servoPin);
   doorServo.write(closeDoorAngle);
 
-  // Initial LCD message
-  lcdSerial.println("Welcome to Jiffy Machine");
+  tft.setCursor(20, 50);
+  tft.println("Welcome to Jiffy Machine");
 }
 
 void loop() {
@@ -46,15 +49,16 @@ void loop() {
     // Customer exited
     customerExited = true;
     totalPrice = 0.0;
-    lcdSerial.println("Bill reset to 0");
+    displayMessage("Bill reset to 0");
   }
 
   // Display total price
-  lcdSerial.print("Total Price: ");
-  lcdSerial.println(totalPrice);
+  displayPrice();
 
-  // Handle payment (this is a placeholder, integrate your payment system here)
-  handlePayment();
+  // Handle payment if customer has exited
+  if (customerExited) {
+    handlePayment();
+  }
 
   delay(500); // Short delay to avoid rapid looping
 }
@@ -75,18 +79,44 @@ float extractPriceFromRFID(String rfidData) {
   return rfidData.toFloat(); // Assuming RFID data is just the price for simplicity
 }
 
+void displayPrice() {
+  // Display total price on the TFT screen
+  tft.setCursor(20, 100);
+  tft.print("Total Price: ");
+  tft.println(totalPrice);
+}
+
 void handlePayment() {
-  // Placeholder for payment handling
-  // Integrate with your payment system
-  if (customerExited) {
-    // Assuming payment is successful for simplicity
-    lcdSerial.println("Payment successful!");
-    digitalWrite(ledPin, HIGH);
-    doorServo.write(openDoorAngle);
-    delay(5000); // Keep door open for 5 seconds
-    doorServo.write(closeDoorAngle);
-    digitalWrite(ledPin, LOW);
-    lcdSerial.println("Thank you! Come again!");
-    customerExited = false;
+  // Display payment instructions on the TFT screen
+  tft.setCursor(20, 150);
+  tft.println("Scan your card to pay");
+
+  // Wait for card scan
+  while (true) {
+    if (rfidSerial.available() > 0) {
+      String cardData = rfidSerial.readStringUntil('\n');
+      // Implement payment verification logic here (dummy example)
+      if (cardData.startsWith("CARD_")) {
+        displayMessage("Payment successful!");
+        digitalWrite(ledPin, HIGH);
+        doorServo.write(openDoorAngle);
+        delay(5000); // Keep door open for 5 seconds
+        doorServo.write(closeDoorAngle);
+        digitalWrite(ledPin, LOW);
+        displayMessage("Thank you! Come again!");
+        customerExited = false;
+        break;
+      } else {
+        displayMessage("Payment failed. Try again.");
+      }
+    }
+    delay(100); // Adjust delay as needed
   }
+}
+
+void displayMessage(String message) {
+  // Display a message on the TFT screen
+  tft.fillScreen(TFT_BLACK);  // Clear the screen
+  tft.setCursor(20, 50);
+  tft.println(message);
 }
